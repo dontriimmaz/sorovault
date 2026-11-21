@@ -987,10 +987,23 @@ func TestLoadSigning(t *testing.T) {
 		})
 	}
 }
+type testSource struct {
+	values map[string]string
+}
+
+func (s *testSource) Getenv(key string) string {
+	if s.values != nil {
+		if v, ok := s.values[key]; ok {
+			return v
+		}
+	}
+	return os.Getenv(key)
+}
+
 func TestGetenv(t *testing.T) {
 	t.Parallel()
 
-	s := &source{values: map[string]string{"TEST_KEY": "hello"}}
+	s := &testSource{values: map[string]string{"TEST_KEY": "hello"}}
 
 	t.Run("happy path from explicit source values", func(t *testing.T) {
 		val := s.Getenv("TEST_KEY")
