@@ -255,8 +255,8 @@ func TestPollEventsWithoutASource(t *testing.T) {
 func TestFollowEvents(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name      string
-		setupErr  error
+		name     string
+		setupErr error
 	}{
 		{
 			name:     "happy path",

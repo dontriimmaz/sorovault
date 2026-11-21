@@ -39,11 +39,11 @@ func TestLocateOrigin(t *testing.T) {
 		t.Parallel()
 
 		tests := []struct {
-			name      string
+			name       string
 			contractID string
-			originErr error
-			wantFound bool
-			wantError bool
+			originErr  error
+			wantFound  bool
+			wantError  bool
 		}{
 			{
 				name:       "unknown origin returns false and no error",

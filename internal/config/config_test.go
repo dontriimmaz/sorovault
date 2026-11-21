@@ -1,17 +1,18 @@
 package config_test
 
 import (
-	"os"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"encoding/base64"
 	"encoding/json"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/soroworks/sorovault/internal/config"
 )
 
