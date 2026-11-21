@@ -252,6 +252,48 @@ func TestPollEventsWithoutASource(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestFollowEvents(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		setupErr  error
+	}{
+		{
+			name:     "happy path",
+			setupErr: nil,
+		},
+		{
+			name:     "error path when polling fails",
+			setupErr: errors.New("rpc error"),
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			f := newFixture(t)
+			f.fake.EventsErr = tt.setupErr
+
+			r, err := refresher.New(f.reg, refresher.Options{
+				Interval:       interval,
+				Logger:         f.log,
+				Now:            f.clock.Now,
+				Events:         f.fake,
+				EventsInterval: 1 * time.Millisecond,
+				Wait:           func(ctx context.Context, _ time.Duration) error { return ctx.Err() },
+			})
+			require.NoError(t, err)
+
+			go r.FollowEvents(ctx)
+			time.Sleep(25 * time.Millisecond)
+			cancel()
+		})
+	}
+}
+
 func TestRunFollowsEventsAlongsidePolling(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)

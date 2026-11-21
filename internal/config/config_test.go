@@ -1,20 +1,20 @@
 package config_test
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"log/slog"
 	"os"
-	"path/filepath"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
+	"encoding/base64"
+	"encoding/json"
+	"log/slog"
+	"path/filepath"
+	"strings"
+	"time"
 	"github.com/soroworks/sorovault/internal/config"
 )
+
 
 const testDatabaseURL = "postgres://user:pass@localhost:5432/sorovault" //nolint:gosec // fixture, not a real credential
 
@@ -986,4 +986,23 @@ func TestLoadSigning(t *testing.T) {
 			assert.NotContains(t, err.Error(), seed, "the key must not leak into an error")
 		})
 	}
+}
+func TestGetenv(t *testing.T) {
+	t.Parallel()
+
+	s := &source{values: map[string]string{"TEST_KEY": "hello"}}
+
+	t.Run("happy path from explicit source values", func(t *testing.T) {
+		val := s.Getenv("TEST_KEY")
+		assert.Equal(t, "hello", val)
+	})
+
+	t.Run("error path or fallback to environment when missing from source", func(t *testing.T) {
+		require.NoError(t, os.Setenv("SOROVAULT_TEST_FALLBACK_KEY", "envval"))
+		t.Cleanup(func() { _ = os.Unsetenv("SOROVAULT_TEST_FALLBACK_KEY") })
+
+		// When a key is missing from the explicit source, Getenv falls back to os.Getenv
+		val := s.Getenv("SOROVAULT_TEST_FALLBACK_KEY")
+		assert.Equal(t, "envval", val)
+	})
 }
