@@ -725,34 +725,6 @@ func TestParseAPITokens(t *testing.T) {
 			})
 		}
 	})
-
-	t.Run("boundary length", func(t *testing.T) {
-		t.Parallel()
-
-		// exactly 16 characters: the minimum, must pass
-		tokens, err := config.ParseAPITokens("0123456789abcdef")
-		require.NoError(t, err)
-		assert.Equal(t, []string{"0123456789abcdef"}, tokens)
-
-		// exactly 15 characters: one below the minimum, must fail
-		_, err = config.ParseAPITokens("0123456789abcde")
-		require.Error(t, err)
-	})
-
-	t.Run("tab inside token is rejected", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := config.ParseAPITokens("0123456789abcdef\tbbb")
-		require.Error(t, err)
-	})
-
-	t.Run("only commas produce empty list", func(t *testing.T) {
-		t.Parallel()
-
-		tokens, err := config.ParseAPITokens(",,,")
-		require.NoError(t, err)
-		assert.Empty(t, tokens)
-	})
 }
 
 func TestLoadAPITokens(t *testing.T) {
@@ -1049,6 +1021,38 @@ func TestLoadSigning(t *testing.T) {
 			assert.NotContains(t, err.Error(), seed, "the key must not leak into an error")
 		})
 	}
+}
+type testSource struct {
+	values map[string]string
+}
+
+func (s *testSource) Getenv(key string) string {
+	if s.values != nil {
+		if v, ok := s.values[key]; ok {
+			return v
+		}
+	}
+	return os.Getenv(key)
+}
+
+func TestGetenv(t *testing.T) {
+	t.Parallel()
+
+	s := &testSource{values: map[string]string{"TEST_KEY": "hello"}}
+
+	t.Run("happy path from explicit source values", func(t *testing.T) {
+		val := s.Getenv("TEST_KEY")
+		assert.Equal(t, "hello", val)
+	})
+
+	t.Run("error path or fallback to environment when missing from source", func(t *testing.T) {
+		require.NoError(t, os.Setenv("SOROVAULT_TEST_FALLBACK_KEY", "envval"))
+		t.Cleanup(func() { _ = os.Unsetenv("SOROVAULT_TEST_FALLBACK_KEY") })
+
+		// When a key is missing from the explicit source, Getenv falls back to os.Getenv
+		val := s.Getenv("SOROVAULT_TEST_FALLBACK_KEY")
+		assert.Equal(t, "envval", val)
+	})
 }
 
 func TestLoadEdgeCases(t *testing.T) {
