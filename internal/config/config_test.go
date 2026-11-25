@@ -1022,6 +1022,7 @@ func TestLoadSigning(t *testing.T) {
 		})
 	}
 }
+
 type testSource struct {
 	values map[string]string
 }
