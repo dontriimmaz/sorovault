@@ -273,9 +273,22 @@ $ go run ./cmd/sorovault add CDZZXVGUCLBUTE3WDD6TF2NXPTBPOYTVPPBBIZMSPVIQLUG226X
 $ go run ./cmd/sorovault serve
 ```
 
+Check that the server is answering before going further:
+
+```console
+$ curl -s localhost:8080/healthz | jq .status
+"ok"
+```
+
 ## Configuration
 
-All configuration is environment variables. Only `DATABASE_URL` (or the path in `DATABASE_URL_FILE`, read from the filesystem) is required.
+All configuration is environment variables. Only `DATABASE_URL` (or the path in `DATABASE_URL_FILE`, read from the filesystem) is required. For example:
+
+```console
+$ export DATABASE_URL='postgres://sorovault@localhost:5432/sorovault?sslmode=disable'
+$ sorovault config show --json | jq .DATABASE_URL
+"postgres://sorovault@localhost:5432/sorovault?sslmode=disable"
+```
 
 ### A YAML file as the base layer
 
@@ -299,6 +312,12 @@ read_only: true
 cors_origins: "https://dashboard.example.com"
 ```
 
+Then start the server with that file:
+
+```console
+$ sorovault --config sorovault.yaml serve
+```
+
 Run `sorovault config show` to print the effective configuration — file,
 environment and defaults merged — with the secrets redacted: the
 connection string keeps its host and loses its password, tokens report
@@ -311,8 +330,8 @@ back out of what it became. `--json` prints the same rows for scripts.
 | `MAX_CONCURRENT_REGISTRATIONS` | `4` | how many registrations and refreshes run at once |
 | `DATABASE_MAX_CONNS` | pgx's own (the greater of 4 or the CPU count) | most connections the pool holds open |
 | `DATABASE_MIN_CONNS` | `0` | connections the pool keeps open between requests |
-| `RPC_URL` | `https://soroban-testnet.stellar.org` | Stellar RPC endpoint |
-| `NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015` | the network you expect `RPC_URL` to serve |
+| `RPC_URL` | `https://soroban-testnet.stellar.org` | Stellar RPC endpoint contract code and upgrade events are read from (must be non-empty; e.g. `https://rpc-futurenet.stellar.org` for futurenet) |
+| `NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015` | the network you expect `RPC_URL` to serve (e.g. `Public Global Stellar Network ; September 2015` for mainnet) |
 | `HTTP_ADDR` | `:8080` | listen address |
 | `METRICS_ADDR` | — (off) | separate `host:port` serving Prometheus metrics at `GET /metrics`; must differ from `HTTP_ADDR`. See [Metrics](#metrics) |
 | `TLS_CERT_FILE` | — | PEM certificate path; set with `TLS_KEY_FILE` to serve HTTPS (`--tls-cert` overrides) |
@@ -335,9 +354,19 @@ back out of what it became. `--json` prints the same rows for scripts.
 | `API_TOKENS` | — | comma-separated bearer tokens the write endpoints accept; unset keeps writes public |
 | `CONFIG_PATH` | — | YAML config file whose values sit under the environment (`--config` names it explicitly) |
 
-`NETWORK_PASSPHRASE` is a guard, not a source of truth. SoroVault reads the real
-passphrase from the RPC endpoint and refuses to proceed if the two disagree, so
-a stale `RPC_URL` cannot quietly file mainnet contracts under `testnet`.
+`RPC_URL` sets the Stellar RPC endpoint that SoroVault reads contract code,
+network passphrases, and upgrade events from (default:
+`https://soroban-testnet.stellar.org`). It must be non-empty at startup. For
+example, set `RPC_URL=https://rpc-futurenet.stellar.org` for futurenet or point
+it at a dedicated mainnet RPC provider (and update `NETWORK_PASSPHRASE` to
+match).
+
+`NETWORK_PASSPHRASE` is a guard, not a source of truth (default:
+`Test SDF Network ; September 2015`). SoroVault reads the real passphrase from
+the `RPC_URL` endpoint and refuses to proceed if the two disagree, so a stale
+`RPC_URL` cannot quietly file mainnet contracts under `testnet`. For example,
+set `NETWORK_PASSPHRASE="Public Global Stellar Network ; September 2015"` for
+mainnet (`public`) or `"Test SDF Future Network ; October 2022"` for futurenet.
 
 ### Automatic refresh
 
@@ -357,6 +386,21 @@ A contract that fails to refresh — expired, or an RPC error — is logged and
 skipped, and the sweep carries on. One sweep runs at startup and then one per
 interval; a sweep in progress at shutdown is cancelled before the database is
 closed.
+
+For example, to re-check every registered contract every six hours:
+
+```console
+$ REFRESH_INTERVAL=6h sorovault serve
+```
+
+To also receive webhook notifications when a contract is upgraded:
+
+```console
+$ REFRESH_INTERVAL=6h \
+  REFRESH_WEBHOOK_URL=https://hooks.example.com/sorovault \
+  REFRESH_WEBHOOK_SECRET=my-secret-key \
+  sorovault serve
+```
 
 ### Metrics
 
